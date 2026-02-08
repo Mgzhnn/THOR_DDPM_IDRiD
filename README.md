@@ -43,9 +43,9 @@ wandb login
 ```
 Sign up for a free account and paste your API key when prompted. You can skip this if you are not logging to wandb.
 
-5) Prepare the IDRiD data and CSV splits:
-   - Place your data under `data/IDRiD_normalize/` (or update paths in the config).
-   - Make sure the CSVs under `data/IDRiD_normalize/splits/` match your files.
+5) Prepare your data and CSV splits:
+   - Place your data in a local folder and update the paths in your config YAML.
+   - Ensure any CSV split files you use point to existing files.
    - Datasets are not included in this repo.
 
 6) Run the pipeline:
