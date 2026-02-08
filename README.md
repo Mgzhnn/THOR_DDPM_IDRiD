@@ -21,6 +21,38 @@ If you use this work, please cite the original paper:
 }
 ```
 
+## Setup and Run (IDRiD)
+These steps mirror the upstream README, adapted for this IDRiD-focused copy.
+
+1) Create a Python environment (optional):
+```
+conda create --name thor python=3.8
+conda activate thor
+```
+
+2) Install PyTorch (pick a CUDA or CPU build that matches your system).
+
+3) Install requirements:
+```
+pip install -r pip_requirements.txt
+```
+
+4) (Optional) Set up Weights & Biases (https://docs.wandb.ai/quickstart):
+```
+wandb login
+```
+Sign up for a free account and paste your API key when prompted. You can skip this if you are not logging to wandb.
+
+5) Prepare the IDRiD data and CSV splits:
+   - Place your data under `data/IDRiD_normalize/` (or update paths in the config).
+   - Make sure the CSVs under `data/IDRiD_normalize/splits/` match your files.
+   - Datasets are not included in this repo.
+
+6) Run the pipeline:
+```
+python core/Main.py --config_path projects/thor/configs/IDRiD/thor.yaml
+```
+
 ## Notes
 - Upstream repository does not include a top-level license. This copy is intended for private use unless explicit permission is granted.
 - Datasets, results, and checkpoints are excluded from version control.
