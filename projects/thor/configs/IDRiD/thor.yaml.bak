@@ -1,0 +1,120 @@
+name: THOR_IDRiD_Experiment
+target_size: &target_size !!python/tuple [512, 512]
+train_batch_size: &tbatch_size 1
+downstream_batch_size: &dbatch_size 1
+checkpoint_path: &checkpoint_path './weights/thor/idrid/'
+
+#
+# Experiment
+#
+experiment:
+  name: THOR_IDRiD
+  task: test 
+  weights: './weights/thor/idrid/2025_12_30_16_47_33_782284/best_model.pt'
+  
+device: gpu
+configurator:
+  module_name: core.Configurator
+  class_name: DLConfigurator
+  params:
+#
+# Model
+#
+model:
+  module_name: model_zoo.ddpm
+  class_name: DDPM
+  params:
+    spatial_dims: 2
+    in_channels: 3   
+    out_channels: 3  
+    num_channels: 
+      - 128
+      - 256
+      - 256
+    attention_levels:
+      - False
+      - False
+      - True
+    num_res_blocks: 1
+    num_head_channels: 256
+
+    # Scheduling and noising scheme
+    train_scheduler: "ddpm"
+    inference_scheduler: "ddpm"
+    inference_steps: 1000
+    noise_level_recon: 600
+    noise_type: "gaussian"
+    prediction_type: "sample"
+    inference_type: 'thor'
+    t_harmonization: 
+      - 300
+      - 150
+      - 50
+      
+
+#
+# Trainer
+#
+trainer:
+  module_name: projects.thor.DDPMTrainer 
+  class_name: PTrainer
+  params:
+    input_size: *target_size
+    checkpoint_path: *checkpoint_path
+    batch_size: *tbatch_size
+    nr_epochs: 500
+    val_interval: 500                                                    
+    patience: 10
+    # Loss
+    loss:
+      module_name: optim.losses.ln_losses
+      class_name: L2
+      params:
+    optimizer_params:
+      lr: 1.0e-4
+  # Data Loader
+  data_loader:
+    module_name: core.DataLoader
+    class_name: DefaultDataLoader
+    params:
+      args:
+        target_size: *target_size
+        batch_size: *tbatch_size
+        dataset_module:
+          module_name: data.loaders.IDRiD_loader 
+          class_name: IDRiDLoader               
+        data_dir:
+          train:
+            - 'data/IDRiD_normalize/splits/train_normal.csv'
+          val:
+            - 'data/IDRiD_normalize/splits/val_normal.csv'
+          test:
+            - 'data/IDRiD_normalize/splits/test_normal.csv'
+            - 'data/IDRiD_normalize/splits/test_DR.csv'
+
+#
+# Downstream tasks (Evaluation)
+#
+downstream_tasks:
+  retinopathy_evaluation: 
+    module_name: projects.thor.DownstreamEvaluatorIDRiD 
+    class_name: PDownstreamEvaluator
+    checkpoint_path: *checkpoint_path
+    global_detection: True
+    data_loader:
+      module_name: core.DataLoader
+      class_name: DefaultDataLoader
+      params:
+        args:
+          target_size: *target_size
+          batch_size: *dbatch_size
+          dataset_module:
+            module_name: data.loaders.IDRiD_loader
+            class_name: IDRiDLoader
+      
+      datasets:
+        DiabeticRetinopathy:
+          data_dir:
+            test:
+              - 'data/IDRiD_normalize/splits/test_DR.csv'
+              - 'data/IDRiD_normalize/splits/test_normal.csv'

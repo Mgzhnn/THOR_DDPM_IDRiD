@@ -1,0 +1,15 @@
+# Data & outputs
+data/*
+!data/loaders/
+!data/loaders/**
+weights/
+results/
+logs/
+run*.log
+
+# Python cache
+**/__pycache__/
+*.pyc
+
+# OS
+.DS_Store
