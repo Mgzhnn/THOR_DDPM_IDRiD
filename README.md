@@ -140,26 +140,21 @@ Typical result files:
 - CUDA issues: install a PyTorch version compatible with your local CUDA runtime.
 
 ## Attribution
-This project is based on the original THOR_DDPM repository by:
-Cosmin I. Bercea, Benedikt Wiestler, Daniel Rueckert, and Julia Schnabel
-
-Original codebase:
+This work is based on the original THOR_DDPM repository by Cosmin I. Bercea, Benedikt Wiestler, Daniel Rueckert, and Julia Schnabel:
 https://github.com/ci-ber/THOR_DDPM
-
-All scientific and original implementation credit belongs to the upstream authors.
 
 ## Citation
 If you use this work, please cite the original paper:
 
 ```bibtex
 @misc{Bercea2024diffusion,
-  title={Diffusion Models with Implicit Guidance for Medical Anomaly Detection},
-  author={Cosmin I. Bercea and Benedikt Wiestler and Daniel Rueckert and Julia Schnabel},
-  year={2024},
-  month={3},
-  eprint={2403.08464},
-  archivePrefix={arXiv},
-  primaryClass={cs.CV}
+    title={Diffusion Models with Implicit Guidance for Medical Anomaly Detection},
+    author={Cosmin I. Bercea and Benedikt Wiestler and Daniel Rueckert and Julia Schnabel},
+    year={2024},
+    month={3},
+    eprint={2403.08464},
+    archivePrefix={arXiv},
+    primaryClass={cs.CV}
 }
 ```
 
