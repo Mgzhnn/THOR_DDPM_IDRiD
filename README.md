@@ -69,8 +69,6 @@ Expected in config (`thor.yaml`):
 - Train CSVs:
   - `data/IDRiD_normalize/splits/train_normal.csv`
   - `data/IDRiD_normalize/splits/train_idrid_only.csv`
-- Val CSV:
-  - `data/IDRiD_normalize/splits/val_normal.csv`
 - Test CSVs:
   - `data/IDRiD_normalize/splits/test_normal.csv`
   - `data/IDRiD_normalize/splits/test_DR.csv`
@@ -137,26 +135,6 @@ Typical result files:
 ## Common Issues
 - `FileNotFoundError` for CSV paths: verify split paths in `thor.yaml`.
 - Empty or incorrect labels: ensure normal files include `/normal/` or `/good/` in their paths.
-- CUDA issues: install a PyTorch version compatible with your local CUDA runtime.
-
-## Attribution
-This work is based on the original THOR_DDPM repository by Cosmin I. Bercea, Benedikt Wiestler, Daniel Rueckert, and Julia Schnabel:
-https://github.com/ci-ber/THOR_DDPM
-
-## Citation
-If you use this work, please cite the original paper:
-
-```bibtex
-@misc{Bercea2024diffusion,
-    title={Diffusion Models with Implicit Guidance for Medical Anomaly Detection},
-    author={Cosmin I. Bercea and Benedikt Wiestler and Daniel Rueckert and Julia Schnabel},
-    year={2024},
-    month={3},
-    eprint={2403.08464},
-    archivePrefix={arXiv},
-    primaryClass={cs.CV}
-}
-```
 
 ## Notes
 - Data, checkpoints, and results are intentionally git-ignored.
