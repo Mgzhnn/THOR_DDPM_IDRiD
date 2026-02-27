@@ -25,7 +25,7 @@ The core method and original implementation are from the upstream authors; this 
 2. Reconstruct input images through diffusion reverse process.
 3. Build anomaly map from reconstruction residuals (THOR inference path).
 4. Apply FOV-aware masking to focus scoring inside retina region.
-5. Compute image-level anomaly score (masked L2), AUROC/AUPRC, and thresholded predictions.
+5. Compute image-level anomaly score (masked L2), AUROC/AUPRC, and thresholded predictions (when threshold is available).
 6. Save per-image CSV + plots + side-by-side visualizations.
 
 ## Project Structure
@@ -57,10 +57,9 @@ conda activate thor
 pip install -r pip_requirements.txt
 ```
 
-4. Optional logging setup:
-```bash
-wandb login
-```
+4. Logging:
+- This branch saves logs and outputs locally (`weights/`, `results/`).
+- Weights & Biases hooks are disabled in the current code, so `wandb login` is not required.
 
 ## Data Preparation (IDRiD)
 This repository does not include IDRiD images or split files. You need to create them locally.
@@ -128,10 +127,10 @@ Downstream IDRiD evaluation artifacts are saved to:
 - `results/<timestamp>/`
 
 Typical result files:
-- `per_image_scores.csv` (score + label + prediction per image)
-- `global_metrics.txt` (AUROC, AUPRC, threshold, overlap)
-- `roc_curve.png`
-- `score_overlap.png`
+- `per_image_scores.csv` (always saved; contains Dataset/Filename/Label/Anomaly_Score/MSE/LPIPS. `Pred_Label` and `Correct` are appended only when a threshold is available)
+- `global_metrics.txt` (always saved; AUROC/AUPRC are included only when both classes exist)
+- `roc_curve.png` (saved only when both normal and anomaly classes are present)
+- `score_overlap.png` (saved only when overlap is computable from available scores)
 - `visualizations/*.png` (Input / Reconstruction / Anomaly Map / Thresholded mask)
 
 ### Metric Examples
@@ -141,9 +140,10 @@ Higher area under the curve indicates better anomaly/normal separability.
 
 ![ROC curve example](assets/roc_curve_metric.png)
 
-**Anomaly Score Distribution**
+**Anomaly Score Distribution (custom analysis example)**
 Compares anomaly score distributions for normal and anomaly samples.  
-Clearer separation between the two groups indicates stronger detection behavior.
+Clearer separation between the two groups indicates stronger detection behavior.  
+Note: this boxplot is a custom analysis figure; the evaluator code automatically saves `score_overlap.png` as its distribution-related plot.
 
 ![Anomaly score distribution example](assets/anomaly_score_distribution_metric.png)
 
