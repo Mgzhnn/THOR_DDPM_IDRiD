@@ -134,6 +134,19 @@ Typical result files:
 - `score_overlap.png`
 - `visualizations/*.png` (Input / Reconstruction / Anomaly Map / Thresholded mask)
 
+### Metric Examples
+**ROC Curve**
+Shows True Positive Rate vs False Positive Rate across score thresholds.  
+Higher area under the curve indicates better anomaly/normal separability.
+
+![ROC curve example](assets/roc_curve_metric.png)
+
+**Anomaly Score Distribution**
+Compares anomaly score distributions for normal and anomaly samples.  
+Clearer separation between the two groups indicates stronger detection behavior.
+
+![Anomaly score distribution example](assets/anomaly_score_distribution_metric.png)
+
 ## Common Issues
 - `FileNotFoundError` for CSV paths: verify split paths in `thor.yaml`.
 - Empty or incorrect labels: ensure normal files include `/normal/` or `/good/` in their paths.
