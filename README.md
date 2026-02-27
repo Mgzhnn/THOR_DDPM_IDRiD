@@ -2,6 +2,9 @@
 
 This repository is a trimmed-down copy of the THOR_DDPM codebase adapted for IDRiD downstream evaluation.
 
+## Example Output
+![THOR_DDPM_IDRiD sample](assets/Thor_IDRID.png)
+
 ## Attribution
 This work is based on the original THOR_DDPM repository by Cosmin I. Bercea, Benedikt Wiestler, Daniel Rueckert, and Julia Schnabel:
 https://github.com/ci-ber/THOR_DDPM
