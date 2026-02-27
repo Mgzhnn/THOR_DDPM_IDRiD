@@ -1,6 +1,6 @@
 # THOR_DDPM (IDRiD-focused)
 
-This repository is a private, trimmed-down copy of the THOR_DDPM codebase adapted for IDRiD downstream evaluation.
+This repository is a trimmed-down copy of the THOR_DDPM codebase adapted for IDRiD downstream evaluation.
 
 ## Attribution
 This work is based on the original THOR_DDPM repository by Cosmin I. Bercea, Benedikt Wiestler, Daniel Rueckert, and Julia Schnabel:
