@@ -69,6 +69,8 @@ Expected in config (`thor.yaml`):
 - Train CSVs:
   - `data/IDRiD_normalize/splits/train_normal.csv`
   - `data/IDRiD_normalize/splits/train_idrid_only.csv`
+- Val CSV:
+  - `data/IDRiD_normalize/splits/val_normal.csv`
 - Test CSVs:
   - `data/IDRiD_normalize/splits/test_normal.csv`
   - `data/IDRiD_normalize/splits/test_DR.csv`
