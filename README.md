@@ -2,10 +2,22 @@
 
 IDRiD-focused adaptation of THOR_DDPM for retinal anomaly detection with diffusion reconstruction.
 
+## Upstream Credit
+This project is adapted from the original **THOR_DDPM** repository by **Cosmin I. Bercea, Benedikt Wiestler, Daniel Rueckert, and Julia Schnabel**.
+
+The core method and original implementation are from the upstream authors; this repository focuses on an IDRiD-oriented configuration and evaluation workflow.
+
 Upstream source: https://github.com/ci-ber/THOR_DDPM
 
 ## Example Output
 ![THOR_DDPM_IDRiD sample](assets/Thor_IDRID.png)
+
+## Important Parts
+- Main config: `projects/thor/configs/IDRiD/thor.yaml`
+- Trainer: `projects/thor/DDPMTrainer.py`
+- Evaluator: `projects/thor/DownstreamEvaluatorIDRiD.py`
+- IDRiD loader: `data/loaders/IDRiD_loader.py`
+- Key config fields: `experiment.task`, `experiment.weights`, `trainer.params.checkpoint_path`, `model.params.inference_type`, `model.params.noise_level_recon`, `model.params.t_harmonization`
 
 ## Setup
 1. Create environment:
