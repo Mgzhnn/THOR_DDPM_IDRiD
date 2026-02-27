@@ -1,156 +1,79 @@
 # THOR_DDPM_IDRiD
 
-IDRiD-focused adaptation of THOR_DDPM for diffusion-based retinal anomaly detection.
+IDRiD-focused adaptation of THOR_DDPM for retinal anomaly detection with diffusion reconstruction.
 
-The project trains a DDPM model for reconstruction, then uses reconstruction error and THOR-style harmonized diffusion inference to produce anomaly maps and image-level anomaly scores for diabetic retinopathy screening.
-
-## Upstream Credit
-This project is adapted from the original **THOR_DDPM** repository by **Cosmin I. Bercea, Benedikt Wiestler, Daniel Rueckert, and Julia Schnabel**.
-
-Original source: https://github.com/ci-ber/THOR_DDPM
-
-The core method and original implementation are from the upstream authors; this repository focuses on an IDRiD-oriented configuration and evaluation workflow.
+Upstream source: https://github.com/ci-ber/THOR_DDPM
 
 ## Example Output
 ![THOR_DDPM_IDRiD sample](assets/Thor_IDRID.png)
 
-## What This Repository Contains
-- IDRiD-specific config: `projects/thor/configs/IDRiD/thor.yaml`
-- IDRiD RGB loader with train/test transforms: `data/loaders/IDRiD_loader.py`
-- THOR-style DDPM training: `projects/thor/DDPMTrainer.py`
-- IDRiD downstream evaluator with local saving of metrics/plots/visualizations: `projects/thor/DownstreamEvaluatorIDRiD.py`
-
-## Pipeline Overview
-1. Train DDPM reconstruction model on the configured IDRiD training splits.
-2. Reconstruct input images through diffusion reverse process.
-3. Build anomaly map from reconstruction residuals (THOR inference path).
-4. Apply FOV-aware masking to focus scoring inside retina region.
-5. Compute image-level anomaly score (masked L2), AUROC/AUPRC, and thresholded predictions (when threshold is available).
-6. Save per-image CSV + plots + side-by-side visualizations.
-
-## Project Structure
-```text
-THOR_DDPM_IDRiD/
-  core/                         # framework entrypoints (Main, Configurator, DataLoader)
-  projects/thor/
-    configs/IDRiD/thor.yaml     # main experiment config
-    DDPMTrainer.py              # training routine
-    DownstreamEvaluatorIDRiD.py # IDRiD evaluation logic
-  data/loaders/                 # dataset loaders (IDRiD, xray, brain)
-  model_zoo/                    # DDPM model definition
-  net_utils/                    # schedulers, UNet blocks, inferers
-  optim/                        # losses and metrics
-  assets/Thor_IDRID.png         # README sample figure
-```
-
-## Environment Setup
+## Setup
 1. Create environment:
 ```bash
 conda create -n thor python=3.8
 conda activate thor
 ```
-
-2. Install PyTorch (CUDA or CPU build matching your machine).
-
-3. Install project dependencies:
+2. Install PyTorch for your system (CPU/CUDA).
+3. Install dependencies:
 ```bash
 pip install -r pip_requirements.txt
 ```
 
-4. Logging:
-- This branch saves logs and outputs locally (`weights/`, `results/`).
-- Weights & Biases hooks are disabled in the current code, so `wandb login` is not required.
+Logging is local in this branch (`weights/`, `results/`). `wandb login` is not required.
 
-## Data Preparation (IDRiD)
-This repository does not include IDRiD images or split files. You need to create them locally.
-
-Expected in config (`thor.yaml`):
-- Train CSVs:
-  - `data/IDRiD_normalize/splits/train_normal.csv`
-  - `data/IDRiD_normalize/splits/train_idrid_only.csv`
-- Val CSV:
-  - `data/IDRiD_normalize/splits/val_normal.csv`
-- Test CSVs:
-  - `data/IDRiD_normalize/splits/test_normal.csv`
-  - `data/IDRiD_normalize/splits/test_DR.csv`
+## Data Preparation
+Use `projects/thor/configs/IDRiD/thor.yaml` and prepare these CSV splits:
+- `data/IDRiD_normalize/splits/train_normal.csv`
+- `data/IDRiD_normalize/splits/train_idrid_only.csv`
+- `data/IDRiD_normalize/splits/val_normal.csv`
+- `data/IDRiD_normalize/splits/test_normal.csv`
+- `data/IDRiD_normalize/splits/test_DR.csv`
 
 CSV format:
-- Header must be `filename`
-- Each next row is one image path (absolute or relative)
-
-Example:
 ```csv
 filename
-/path/to/IDRiD_normalize/normal/img_001.png
-/path/to/IDRiD_normalize/DR/img_245.png
+/path/to/image_001.png
+/path/to/image_002.png
 ```
 
-Label behavior in evaluator:
-- File path containing `/normal/` or `/good/` is treated as normal (`label=0`)
-- Other paths are treated as anomaly (`label=1`)
-
-## Configuration Guide
-Main config file: `projects/thor/configs/IDRiD/thor.yaml`
-
-Important fields:
-- `experiment.task`: set `train` for training or `test` for evaluation-only
-- `experiment.weights`: checkpoint to load (`best_model.pt`) for evaluation
-- `trainer.params.checkpoint_path`: base output path for run checkpoints
-- `model.params.inference_type`: should be `thor` for THOR-style anomaly inference
-- `model.params.noise_level_recon`: reconstruction noise level
-- `model.params.t_harmonization`: diffusion timesteps used in harmonization
+Label rule in evaluator:
+- path containing `/normal/` or `/good/` -> `label=0`
+- otherwise -> `label=1`
 
 ## Run
-Default command:
 ```bash
 python core/Main.py --config_path projects/thor/configs/IDRiD/thor.yaml
 ```
 
 For training:
-- In `thor.yaml`, set `experiment.task: train`
-- Set `experiment.weights: null` (or remove it) to start from scratch
+- set `experiment.task: train`
+- set `experiment.weights: null`
 
-For evaluation-only:
-- In `thor.yaml`, set `experiment.task: test`
-- Set `experiment.weights` to a trained checkpoint path
+For evaluation:
+- set `experiment.task: test`
+- set `experiment.weights: <path_to_best_model.pt>`
 
 ## Outputs
-Training/evaluation checkpoints are saved to:
+Checkpoint folder:
 - `weights/thor/idrid/<timestamp>/`
+- includes `latest_model.pt`, `best_model.pt`, `Val_epoch_*.png`
 
-Typical checkpoint files:
-- `latest_model.pt`
-- `best_model.pt`
-- `Val_epoch_*.png` (validation sample visualization)
-
-Downstream IDRiD evaluation artifacts are saved to:
+Evaluation folder:
 - `results/<timestamp>/`
+- `per_image_scores.csv` (always saved; `Pred_Label` and `Correct` appear only when threshold is available)
+- `global_metrics.txt` (always saved; AUROC/AUPRC only when both classes exist)
+- `roc_curve.png` (only when both classes exist)
+- `score_overlap.png` (only when overlap is computable)
+- `visualizations/*.png`
 
-Typical result files:
-- `per_image_scores.csv` (always saved; contains Dataset/Filename/Label/Anomaly_Score/MSE/LPIPS. `Pred_Label` and `Correct` are appended only when a threshold is available)
-- `global_metrics.txt` (always saved; AUROC/AUPRC are included only when both classes exist)
-- `roc_curve.png` (saved only when both normal and anomaly classes are present)
-- `score_overlap.png` (saved only when overlap is computable from available scores)
-- `visualizations/*.png` (Input / Reconstruction / Anomaly Map / Thresholded mask)
-
-### Metric Examples
-**ROC Curve**
-Shows True Positive Rate vs False Positive Rate across score thresholds.  
-Higher area under the curve indicates better anomaly/normal separability.
+## Metric Examples
+ROC curve example:
 
 ![ROC curve example](assets/roc_curve_metric.png)
 
-**Anomaly Score Distribution (custom analysis example)**
-Compares anomaly score distributions for normal and anomaly samples.  
-Clearer separation between the two groups indicates stronger detection behavior.  
-Note: this boxplot is a custom analysis figure; the evaluator code automatically saves `score_overlap.png` as its distribution-related plot.
+Anomaly score distribution (custom analysis example):
 
 ![Anomaly score distribution example](assets/anomaly_score_distribution_metric.png)
 
-## Common Issues
-- `FileNotFoundError` for CSV paths: verify split paths in `thor.yaml`.
-- Empty or incorrect labels: ensure normal files include `/normal/` or `/good/` in their paths.
-
 ## Notes
-- Data, checkpoints, and results are intentionally git-ignored.
-- Upstream repository does not provide a top-level license in this copy; use accordingly.
+- Data, checkpoints, and results are git-ignored.
