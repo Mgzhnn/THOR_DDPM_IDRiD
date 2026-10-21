@@ -34,6 +34,9 @@ class PDownstreamEvaluator(DownstreamEvaluator):
         self.l_pips_sq = lpips.LPIPS(pretrained=True, net='squeeze', use_dropout=True, eval_mode=True, spatial=True, lpips=True).to(self.device)
         self.threshold_percentile = threshold_percentile
         self.val_data_dict = val_data_dict
+        # FOV mask used for every score (test and validation): ellipse shrink and rim erosion in pixels
+        self.fov_shrink_px = 10
+        self.fov_rim_px = 4
 
         current_time = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
         self.save_dir = os.path.join("results", current_time)
@@ -118,37 +121,11 @@ class PDownstreamEvaluator(DownstreamEvaluator):
                         fn = self._to_slash_path(filename) if hasattr(self, "_to_slash_path") else (filename or "").replace("\\", "/")
                         current_label = 0 if ("/normal/" in fn or "/good/" in fn) else 1
 
-                        x_i = x[i]      
-                        x_rec_i = x_rec[i] 
-                        x_res_i = anomaly_maps[i][0] 
-                        img_np = x_i.detach().cpu().numpy()
+                        x_i = x[i]
+                        x_rec_i = x_rec[i]
+                        x_res_i = anomaly_maps[i][0]
 
-                        if img_np.ndim == 3 and img_np.shape[0] == 3:   
-                            g = img_np[1]
-                        else:                                         
-                            g = img_np[..., 1]
-
-                        g8 = np.clip(g * 255.0, 0, 255).astype(np.uint8)
-                        g8 = cv2.GaussianBlur(g8, (5, 5), 0)
-                        _, fov = cv2.threshold(g8, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-                        # MORPHOLOGY
-                        k_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (21, 21))
-                        k_open  = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11))
-                        fov = cv2.morphologyEx(fov, cv2.MORPH_CLOSE, k_close)
-                        fov = cv2.morphologyEx(fov, cv2.MORPH_OPEN,  k_open)
-
-                        num, labels, stats, _ = cv2.connectedComponentsWithStats(fov, connectivity=8)
-                        if num > 1:
-                            largest = 1 + np.argmax(stats[1:, cv2.CC_STAT_AREA])
-                            fov = (labels == largest).astype(np.uint8) * 255
-                        
-
-                        fov01 = self._inner_ellipse_mask(fov, shrink_px=10)  # try 20..40
-
-                        mask_u8 = (fov01 > 0).astype(np.uint8)
-                        dist2 = cv2.distanceTransform(mask_u8, cv2.DIST_L2, 5)
-                        rim = 4
-                        fov01 = (dist2 > rim).astype(np.float32)
+                        fov01 = self._fov_mask(x_i)
 
                         # KERNEL METHOD
                         map_np = x_res_i.detach().cpu().numpy() if isinstance(x_res_i, torch.Tensor) else x_res_i
@@ -158,23 +135,15 @@ class PDownstreamEvaluator(DownstreamEvaluator):
                         map_raw = np.clip(map_np, 0.0, 1.0)
                         map_np = map_raw * fov01
 
-                        mask01 = fov01  
-                        rec_np = x_rec_i.detach().cpu().numpy()  
-                        rec_np = rec_np * mask01             
+                        rec_np = x_rec_i.detach().cpu().numpy() * fov01
 
-                        mask_t = torch.from_numpy(fov01).to(self.device).float()     
-                        mask_t = mask_t.unsqueeze(0).repeat(3, 1, 1)               
-                        den = mask_t.sum().clamp(min=1.0)
-                        diff = (x_rec_i - x_i) * mask_t
-                        loss_mse = (diff * diff).sum() / den
-                        #loss_mse = self.criterion_rec(x_rec_i, x_i)
+                        loss_mse, mask_t = self._masked_mse(x_i, x_rec_i, fov01)
                         metrics['MSE'].append(loss_mse.item())
-                        
-                        # LPIPS Mean
+
+                        # LPIPS Mean (x_i and x_rec_i are in [0, 1]; normalize=True maps them to the [-1, 1] LPIPS expects)
                         x_i_masked = x_i * mask_t
                         x_rec_i_masked = x_rec_i * mask_t
-                        loss_lpips = self.l_pips_sq(x_i_masked.unsqueeze(0), x_rec_i_masked.unsqueeze(0)).mean().item()
-                        #loss_lpips = self.l_pips_sq(x_i.unsqueeze(0), x_rec_i.unsqueeze(0)).mean().item()
+                        loss_lpips = self.l_pips_sq(x_i_masked.unsqueeze(0), x_rec_i_masked.unsqueeze(0), normalize=True).mean().item()
                         metrics['LPIPS'].append(loss_lpips)
 
                         # Score aligned with training objective (masked L2 reconstruction error)
@@ -236,64 +205,57 @@ class PDownstreamEvaluator(DownstreamEvaluator):
 
                 x_input = (x * 2) - 1
                 with torch.no_grad():
-                    anomaly_maps, _, x_rec_dict = self.model.get_anomaly(x_input)
+                    _, _, x_rec_dict = self.model.get_anomaly(x_input)
+                x_rec = torch.clamp((x_rec_dict['x_rec'] + 1) / 2, 0, 1)
 
                 for i in range(len(x)):
                     filename = filenames[i] if i < len(filenames) else f"img_{idx * len(x) + i}"
-                    fn = self._to_slash_path(filename) if hasattr(self, "_to_slash_path") else (filename or "").replace("\\", "/")
+                    fn = self._to_slash_path(filename)
                     current_label = 0 if ("/normal/" in fn or "/good/" in fn) else 1
 
-                    x_i = x[i]
-                    x_res_i = anomaly_maps[i][0]
-                    img_np = x_i.detach().cpu().numpy()
-
-                    if img_np.ndim == 3 and img_np.shape[0] == 3:
-                        g = img_np[1]
-                    else:
-                        g = img_np[..., 1]
-
-                    g8 = np.clip(g * 255.0, 0, 255).astype(np.uint8)
-                    g8 = cv2.GaussianBlur(g8, (5, 5), 0)
-                    _, fov = cv2.threshold(g8, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-                    k_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (21, 21))
-                    k_open = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11))
-                    fov = cv2.morphologyEx(fov, cv2.MORPH_CLOSE, k_close)
-                    fov = cv2.morphologyEx(fov, cv2.MORPH_OPEN, k_open)
-
-                    num, labels_cc, stats, _ = cv2.connectedComponentsWithStats(fov, connectivity=8)
-                    if num > 1:
-                        largest = 1 + np.argmax(stats[1:, cv2.CC_STAT_AREA])
-                        fov = (labels_cc == largest).astype(np.uint8) * 255
-
-                    fov01 = self._inner_ellipse_mask(fov, shrink_px=25)
-
-                    mask_u8 = (fov01 > 0).astype(np.uint8)
-                    dist2 = cv2.distanceTransform(mask_u8, cv2.DIST_L2, 5)
-                    rim = 8
-                    fov01 = (dist2 > rim).astype(np.float32)
-
-                    map_np = x_res_i.detach().cpu().numpy() if isinstance(x_res_i, torch.Tensor) else x_res_i
-                    if map_np.ndim == 3 and map_np.shape[0] == 1:
-                        map_np = map_np[0]
-
-                    map_raw = np.clip(map_np, 0.0, 1.0)
-                    map_np = map_raw * fov01
-
-                    # Score aligned with training objective (masked L2 reconstruction error)
-                    x_rec = x_rec_dict['x_rec']
-                    x_rec = (x_rec + 1) / 2
-                    x_rec = torch.clamp(x_rec, 0, 1)
-                    x_rec_i = x_rec[i]
-                    mask_t = torch.from_numpy(fov01).to(self.device).float()
-                    mask_t = mask_t.unsqueeze(0).repeat(3, 1, 1)
-                    den = mask_t.sum().clamp(min=1.0)
-                    diff = (x_rec_i - x_i) * mask_t
-                    loss_mse = (diff * diff).sum() / den
-                    score = loss_mse.item()
-                    scores.append(score)
+                    # Same FOV mask and score as object_localization, so the threshold is comparable to test scores
+                    fov01 = self._fov_mask(x[i])
+                    loss_mse, _ = self._masked_mse(x[i], x_rec[i], fov01)
+                    scores.append(loss_mse.item())
                     labels.append(current_label)
 
         return np.array(scores), np.array(labels)
+
+    def _fov_mask(self, x_i: torch.Tensor) -> np.ndarray:
+        """Field-of-view mask (H, W) float32 in {0, 1} for one [0, 1] image, built from the green channel."""
+        img_np = x_i.detach().cpu().numpy()
+        if img_np.ndim == 3 and img_np.shape[0] == 3:
+            g = img_np[1]
+        else:
+            g = img_np[..., 1]
+
+        g8 = np.clip(g * 255.0, 0, 255).astype(np.uint8)
+        g8 = cv2.GaussianBlur(g8, (5, 5), 0)
+        _, fov = cv2.threshold(g8, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        # MORPHOLOGY
+        k_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (21, 21))
+        k_open = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11))
+        fov = cv2.morphologyEx(fov, cv2.MORPH_CLOSE, k_close)
+        fov = cv2.morphologyEx(fov, cv2.MORPH_OPEN, k_open)
+
+        num, labels_cc, stats, _ = cv2.connectedComponentsWithStats(fov, connectivity=8)
+        if num > 1:
+            largest = 1 + np.argmax(stats[1:, cv2.CC_STAT_AREA])
+            fov = (labels_cc == largest).astype(np.uint8) * 255
+
+        fov01 = self._inner_ellipse_mask(fov, shrink_px=self.fov_shrink_px)
+
+        mask_u8 = (fov01 > 0).astype(np.uint8)
+        dist2 = cv2.distanceTransform(mask_u8, cv2.DIST_L2, 5)
+        return (dist2 > self.fov_rim_px).astype(np.float32)
+
+    def _masked_mse(self, x_i: torch.Tensor, x_rec_i: torch.Tensor, fov01: np.ndarray):
+        """Anomaly score: mean squared reconstruction error inside the FOV mask. Returns (score tensor, (C, H, W) mask)."""
+        mask_t = torch.from_numpy(fov01).to(x_i.device).float()
+        mask_t = mask_t.unsqueeze(0).repeat(x_i.shape[0], 1, 1)
+        den = mask_t.sum().clamp(min=1.0)
+        diff = (x_rec_i - x_i) * mask_t
+        return (diff * diff).sum() / den, mask_t
 
 
     def _inner_ellipse_mask(self, fov_u8: np.ndarray, shrink_px: int = 25) -> np.ndarray:
@@ -406,7 +368,6 @@ class PDownstreamEvaluator(DownstreamEvaluator):
         result_txt_path = os.path.join(self.save_dir, 'global_metrics.txt')
 
         lines = []
-        score_threshold = None
         if len(np.unique(labels)) > 1:
             try:
                 auroc = roc_auc_score(labels, scores)
@@ -443,11 +404,14 @@ class PDownstreamEvaluator(DownstreamEvaluator):
             normal_scores = scores[labels == 0]
             if normal_scores.size > 0:
                 score_threshold = float(np.percentile(normal_scores, self.threshold_percentile * 100.0))
-                lines.append(f"Score Threshold (Normal P{self.threshold_percentile*100:.1f}): {score_threshold:.6f}")
+                lines.append(f"Score Threshold (test normals P{self.threshold_percentile*100:.1f}): {score_threshold:.6f}")
+                lines.append("WARNING: no validation threshold, so it was chosen on the test set; "
+                             "Pred_Label/Correct are optimistic. Add val_data_loader to the config to avoid this.")
+                logging.warning("Score threshold chosen on test normals (no validation data); Pred_Label is optimistic.")
             else:
                 logging.warning("No normal samples available for percentile-based threshold.")
         else:
-            lines.append(f"Score Threshold (Normal P{self.threshold_percentile*100:.1f}): {score_threshold:.6f}")
+            lines.append(f"Score Threshold (validation normals P{self.threshold_percentile*100:.1f}): {score_threshold:.6f}")
 
         overlap = self._score_overlap(scores, labels)
         if overlap is not None:

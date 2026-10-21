@@ -155,7 +155,8 @@ class DDPM(nn.Module):
     def get_thor_anomaly(self, inputs):
         x_rec, z_dict = self.sample_from_image_interpol(inputs, noise_level=self.noise_level_recon, save_intermediates=True, intermediate_steps=self.intermediate_steps, t_harmonization=self.t_harmonization, t_visualization=self.t_visualization)
         
-        x_rec = torch.clamp(x_rec, 0, 1)
+        # Model space is [-1, 1] (the trainer maps [0, 1] inputs with x * 2 - 1); callers map back to [0, 1].
+        x_rec = torch.clamp(x_rec, -1, 1)
 
         np_res = [inter.cpu().detach().numpy() for inter in z_dict['inter_res']]
         x_rec_refined = x_rec 
@@ -212,13 +213,14 @@ class DDPM(nn.Module):
             ph_img = torch.unsqueeze(torch.unsqueeze(ph_img, 0), 0)
             anomaly_img = torch.unsqueeze(torch.unsqueeze(anomaly_img, 0), 0)
         
-        # [수정] 이중 정규화 제거 (이미 [-1, 1] 범위로 입력됨)
+        # Inputs are already in [-1, 1], the range LPIPS expects, so normalize=False.
+        # normalize=True would map [0, 1] -> [-1, 1] and turn these inputs into [-3, 1].
         if anomaly_img.shape[1] == 1:
             anomaly_img = anomaly_img.repeat(1, 3, 1, 1)
         if ph_img.shape[1] == 1:
             ph_img = ph_img.repeat(1, 3, 1, 1)
 
-        loss_lpips = self.l_pips_sq(anomaly_img, ph_img, normalize=True, retPerLayer=retPerLayer)
+        loss_lpips = self.l_pips_sq(anomaly_img, ph_img, normalize=False, retPerLayer=retPerLayer)
         if retPerLayer:
             loss_lpips = loss_lpips[1][0]
         return loss_lpips.cpu().detach().numpy()
