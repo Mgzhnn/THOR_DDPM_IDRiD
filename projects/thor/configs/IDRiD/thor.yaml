@@ -9,8 +9,9 @@ checkpoint_path: &checkpoint_path './weights/thor/idrid/'
 # before trained for first task with - './weights/thor/idrid/2025_12_30_16_47_33_782284/best_model.pt'
 experiment:
   name: THOR_IDRiD
-  task: test 
+  task: test
   weights: './weights/thor/idrid/2025_12_30_16_47_33_782284/best_model.pt'
+  resume: false  # true: continue an interrupted run from its epoch; false: fine-tune from weights from epoch 0
 
 device: gpu
 configurator:
@@ -63,8 +64,8 @@ trainer:
     checkpoint_path: *checkpoint_path
     batch_size: *tbatch_size
     nr_epochs: 50
-    val_interval: 500                                                   
-    patience: 10
+    val_interval: 5   # epochs between validations; the last epoch always validates
+    patience: 10      # counted in validations, not epochs (10 x 5 = 50 epochs)
     # Loss
     loss:
       module_name: optim.losses.ln_losses

@@ -1,5 +1,6 @@
 from core.Trainer import Trainer
 from time import time
+import copy
 import os
 # import wandb <-- 제거
 import logging
@@ -13,9 +14,14 @@ class PTrainer(Trainer):
     def __init__(self, training_params, model, data, device, log_wandb=False): # log_wandb 기본값 False
         super(PTrainer, self).__init__(training_params, model, data, device, log_wandb)
         self.val_interval = training_params['val_interval']
-        
-        # 로컬 로그 파일 설정 (선택 사항)
-        logging.basicConfig(filename=os.path.join(self.client_path, 'training.log'), level=logging.INFO)
+        if self.val_interval > training_params['nr_epochs']:
+            logging.warning(f"[Trainer]: val_interval ({self.val_interval}) > nr_epochs ({training_params['nr_epochs']}); "
+                            f"validation will only run after the last epoch")
+
+        # Local log file. Main has already configured the root logger, so basicConfig would be a no-op here.
+        file_handler = logging.FileHandler(os.path.join(self.client_path, 'training.log'))
+        file_handler.setLevel(logging.INFO)
+        logging.getLogger().addHandler(file_handler)
 
     def train(self, model_state=None, opt_state=None, start_epoch=0):
         if model_state is not None:
@@ -25,10 +31,11 @@ class PTrainer(Trainer):
             logging.info("[Trainer::weights]: ################ No model weights were loaded ################")
             
         if opt_state is not None:
-            try: 
-                self.optimizer.load_state_dict(opt_state, strict=False)
-            except: 
-                logging.warning("[Trainer::weights]: Optimizer state could not be loaded")
+            try:
+                self.optimizer.load_state_dict(opt_state)
+                logging.info("[Trainer::weights]: Optimizer state loaded")
+            except (ValueError, KeyError) as e:
+                logging.warning(f"[Trainer::weights]: Optimizer state could not be loaded: {e}")
 
         self.early_stop = False
         scaler = GradScaler()
@@ -83,8 +90,9 @@ class PTrainer(Trainer):
             torch.save({'model_weights': self.model.state_dict(), 'optimizer_weights': self.optimizer.state_dict(), 'epoch': epoch}, 
                        os.path.join(self.client_path, 'latest_model.pt'))
 
-            # Run validation
-            if (epoch + 1) % self.val_interval == 0 and epoch > 0:
+            # Run validation every val_interval epochs, and always after the last epoch so best_model.pt exists
+            is_last_epoch = epoch == self.training_params['nr_epochs'] - 1
+            if (epoch + 1) % self.val_interval == 0 or is_last_epoch:
                 self.test(self.model.state_dict(), self.val_ds, 'Val', self.optimizer.state_dict(), epoch)
 
         return self.best_weights, self.best_opt_weights
@@ -134,14 +142,13 @@ class PTrainer(Trainer):
                         axarr[i].axis('off')
                         v_max = v_maxs[i]
                         c_map = 'gray' if v_max == 1 else 'inferno'
-                        vmin = -1 if v_max == 1 else 0
-                        axarr[i].imshow(elements[i].transpose(1, 2, 0), vmin=vmin, vmax=v_max, cmap=c_map)
-                    
+                        # Images are in [0, 1] here (vmin/vmax only take effect for single-channel images)
+                        axarr[i].imshow(np.clip(elements[i].transpose(1, 2, 0), 0, 1), vmin=0, vmax=v_max, cmap=c_map)
+
                     save_name = os.path.join(self.client_path, f"{task}_epoch_{epoch}.png")
                     plt.savefig(save_name)
                     plt.close(diffp)
                     saved_image = True
-                break 
 
         # Metric 계산 및 로깅
         log_str = f"[{task} Result - Epoch {epoch}] "
@@ -159,8 +166,9 @@ class PTrainer(Trainer):
                 self.min_val_loss = epoch_val_loss
                 torch.save({'model_weights': model_weights, 'optimizer_weights': opt_weights, 'epoch': epoch},
                            os.path.join(self.client_path, 'best_model.pt'))
-                self.best_weights = model_weights
-                self.best_opt_weights = opt_weights
+                # state_dict() returns references to the live tensors; copy so later training steps don't change them
+                self.best_weights = copy.deepcopy(model_weights)
+                self.best_opt_weights = copy.deepcopy(opt_weights)
                 logging.info(f"New best model saved at epoch {epoch} with loss {epoch_val_loss:.6f}")
                 
             self.early_stop = self.early_stopping(epoch_val_loss)
