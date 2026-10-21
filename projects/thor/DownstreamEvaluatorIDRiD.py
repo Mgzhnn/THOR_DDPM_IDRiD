@@ -162,6 +162,12 @@ class PDownstreamEvaluator(DownstreamEvaluator):
 
             logging.info(f"Finished processing {dataset_key}")
 
+        # Labels come from the path ("/normal/" or "/good/" -> 0); a split without those folders is all label 1
+        n_normal = int(sum(1 for l in metrics['Label'] if l == 0))
+        logging.info(f"Labels from paths: {n_normal} normal (0), {len(metrics['Label']) - n_normal} anomalous (1)")
+        if n_normal == 0:
+            logging.warning("No test image path contains '/normal/' or '/good/'; every image is labelled anomalous.")
+
         # Compute score threshold (fallback to test normals if no validation threshold)
         score_threshold = self._compute_global_metrics(metrics, score_threshold)
         if score_threshold is not None:

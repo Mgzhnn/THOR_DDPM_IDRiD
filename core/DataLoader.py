@@ -81,15 +81,9 @@ class DefaultDataset(Dataset):
             return 0
 
     def __getitem__(self, idx):
-        path = self.files[idx]
-        if '/notgood/' in path:     
-            label = 1              
-        elif '/good/' in path:      
-            label = 0            
-        else:
-            label = self.get_label(idx)
-            
-        return self.im_t(self.files[idx]), self.get_label(idx), self.files[idx], 
+        # Second item is the segmentation mask (0 without label_dir). Normal/anomaly labels come from the
+        # file path in the downstream evaluator ("/normal/" or "/good/" -> 0), not from here.
+        return self.im_t(self.files[idx]), self.get_label(idx), self.files[idx]
 
     def __len__(self):
         return self.nr_items

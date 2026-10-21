@@ -135,11 +135,12 @@ class DDPM(nn.Module):
         combined_mask_np = lpips_mask * x_res 
         combined_mask_np2 = (lpips_mask * x_res) 
         
-        combined_mask = torch.Tensor(combined_mask_np).to(self.device)
-        combined_mask2 = torch.Tensor(combined_mask_np2).to(self.device)
+        # Keep results on the inputs' device (self.device ignores the configured device)
+        combined_mask = torch.Tensor(combined_mask_np).to(x.device)
+        combined_mask2 = torch.Tensor(combined_mask_np2).to(x.device)
 
         combined_mask = (combined_mask / (torch.max(combined_mask) + 1e-8)).clip(0,1) 
-        return combined_mask, combined_mask2, torch.Tensor(x_res).to(self.device)
+        return combined_mask, combined_mask2, torch.Tensor(x_res).to(x.device)
 
     
     def get_region_anomaly_mask(self, ano_map, kernel_size=13):
@@ -327,7 +328,7 @@ class DDPM(nn.Module):
                 res_mix = resnp
 
                 region_anomaly_map = self.get_region_anomaly_mask(res_mix) 
-                res = torch.Tensor(region_anomaly_map).to(self.device)
+                res = torch.Tensor(region_anomaly_map).to(inputs.device)
                 res = ((res)).clip(0,1)
                 intermediates_res.append(res_mix)
                 intermediates_res_mix.append(((region_anomaly_map)).clip(0,1))
@@ -345,8 +346,8 @@ class DDPM(nn.Module):
         intermediates_res.append(hmean)
         intermediates_res_mix.append(hmean_mix)
 
-        intermediates_res = [torch.Tensor(inter).to(self.device) for inter in intermediates_res]
-        intermediates_res_mix = [torch.Tensor(inter).to(self.device) for inter in intermediates_res_mix]
+        intermediates_res = [torch.Tensor(inter).to(inputs.device) for inter in intermediates_res]
+        intermediates_res_mix = [torch.Tensor(inter).to(inputs.device) for inter in intermediates_res_mix]
 
         if save_intermediates:
             return image_refined, {'z': intermediates, 'inter_gt': intermediates, 'inter_res': intermediates_res, 'inter_ddpm': intermediates, 'inter_res_ddpm': intermediates_res, 

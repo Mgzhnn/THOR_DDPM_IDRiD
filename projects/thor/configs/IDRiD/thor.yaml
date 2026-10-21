@@ -6,7 +6,7 @@ checkpoint_path: &checkpoint_path './weights/thor/idrid/'
 
 #
 # Experiment
-# before trained for first task with - './weights/thor/idrid/2025_12_30_16_47_33_782284/best_model.pt'
+# weights: checkpoint to evaluate (task: test) or to start training from (task: train; null = from scratch).
 experiment:
   name: THOR_IDRiD
   task: test
@@ -102,7 +102,6 @@ downstream_tasks:
     module_name: projects.thor.DownstreamEvaluatorIDRiD 
     class_name: PDownstreamEvaluator
     checkpoint_path: *checkpoint_path
-    global_detection: True
     data_loader:
       module_name: core.DataLoader
       class_name: DefaultDataLoader
