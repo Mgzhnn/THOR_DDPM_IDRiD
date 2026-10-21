@@ -1,11 +1,11 @@
 # THOR_DDPM_IDRiD
 
-IDRiD-focused adaptation of THOR_DDPM for retinal anomaly detection with diffusion reconstruction.
+Adaptation of THOR_DDPM for anomaly detection in retinal fundus images with diffusion reconstruction.
 
 ## Upstream Credit
 This project is adapted from the original **THOR_DDPM** repository by **Cosmin I. Bercea, Benedikt Wiestler, Daniel Rueckert, and Julia Schnabel**.
 
-The core method and original implementation are from the upstream authors; this repository focuses on an IDRiD-oriented configuration and evaluation workflow.
+The core method and original implementation are from the upstream authors; this repository adds a retinal fundus configuration and evaluation workflow.
 
 Upstream source: https://github.com/ci-ber/THOR_DDPM
 
@@ -39,6 +39,8 @@ pip install -r pip_requirements.txt
 Logging is local in this branch (`weights/`, `results/`). `wandb login` is not required.
 
 ## Data Preparation
+The dataset is not included. `IDRiD` in the repository, folder and config names is historical; any retinal fundus images in this layout work.
+
 Use `projects/thor/configs/IDRiD/thor.yaml` and prepare these CSV splits:
 - `data/IDRiD_normalize/splits/train_normal.csv`
 - `data/IDRiD_normalize/splits/train_idrid_only.csv`
