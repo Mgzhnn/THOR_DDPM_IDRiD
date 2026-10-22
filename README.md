@@ -12,8 +12,9 @@ Upstream source: https://github.com/ci-ber/THOR_DDPM
 ## Example Output
 ![THOR_DDPM_IDRiD sample](assets/Thor_IDRID.png)
 
-The example images on this page were produced before the 2026-10-21 fix to the reconstruction range
-(reconstructions were squeezed into [0.5, 1], hence the washed-out colours). Regenerate them by re-running the evaluation.
+The example images on this page were produced during the internship, before the 2026-10-21 fix to the
+reconstruction range (reconstructions were squeezed into [0.5, 1], hence the washed-out colours). The data they
+came from is not included in this repository, so they are kept as a historical illustration.
 
 ## Repository Layout
 ```
