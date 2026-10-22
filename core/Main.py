@@ -56,14 +56,14 @@ class Main(object):
         method_name = configurator.dl_config['name'] # THOR_IDRiD_Experiment
         logging.info("[Main::setup_experiment]: ################ Starting experiment * {} * using method * {} * ################".format(exp_name, method_name))
 
-        #Use GPU or CPU, load checkpoint if...
-        device = 'cuda' if self.config_file['device'] == 'gpu' else 'cpu'
+        #Load the checkpoint onto the device the configurator resolved (it falls back to CPU when no GPU is available)
+        device = configurator.device
         checkpoint = dict()
 
         #Start from scratch or from checkpoint
         #Here start from scratch
         if configurator.dl_config['experiment']['weights'] is not None:
-            checkpoint = torch.load(configurator.dl_config['experiment']['weights'], map_location=torch.device(device))
+            checkpoint = torch.load(configurator.dl_config['experiment']['weights'], map_location=device)
 
         #Start from checkpoint
         if configurator.dl_config['experiment']['task'] == 'train':
@@ -79,7 +79,7 @@ class Main(object):
 def add_args(parser):
     parser.add_argument('--log_level', type=str, default='INFO', metavar='L',
                         help='log level from : ["INFO", "DEBUG", "WARNING", "ERROR"]')
-    parser.add_argument('--config_path', type=str, default='projects/dummy_project/config/mnist.yaml', metavar='C',
+    parser.add_argument('--config_path', type=str, default='projects/thor/configs/IDRiD/thor.yaml', metavar='C',
                         help='path to configuration yaml file')
     parser.add_argument('--visualize_samples', action='store_true', help='Visualize evaluation samples')
 

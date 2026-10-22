@@ -66,7 +66,9 @@ class Trainer:
         self.device = device
         self.model = model.train().to(self.device)
 
-        self.test_model = copy.deepcopy(model.eval().to(self.device))
+        # Copy first: model.eval() returns the same object, so calling it on `model`
+        # would switch the training model to eval mode (the train loop never resets it).
+        self.test_model = copy.deepcopy(self.model).eval()
 
         patience = training_params['patience'] if 'patience' in training_params.keys() else 25
         self.early_stopping = EarlyStopping(patience=patience)
