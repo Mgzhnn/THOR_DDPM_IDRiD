@@ -154,8 +154,9 @@ class PerceptualLoss(_Loss):
             target (N,*),
                 same shape as input.
         """
-        input_features = self.loss_network(input.repeat(1, 3, 1, 1)) if input.shape[1] == 1 else input
-        output_features = self.loss_network(target.repeat(1, 3, 1, 1)) if target.shape[1] == 1 else target
+        # VGG takes 3 channels: repeat grayscale, pass RGB through (RGB previously skipped VGG and compared raw pixels)
+        input_features = self.loss_network(input.repeat(1, 3, 1, 1) if input.shape[1] == 1 else input)
+        output_features = self.loss_network(target.repeat(1, 3, 1, 1) if target.shape[1] == 1 else target)
 
         loss_pl = 0
         for output_feature, input_feature in zip(output_features, input_features):
@@ -196,8 +197,9 @@ class CosineSimLoss():
             target (N,*),
                 same shape as input.
         """
-        input_features = self.loss_network(input.repeat(1, 3, 1, 1)) if input.shape[1] == 1 else input
-        output_features = self.loss_network(target.repeat(1, 3, 1, 1)) if target.shape[1] == 1 else target
+        # VGG takes 3 channels: repeat grayscale, pass RGB through (RGB previously skipped VGG and compared raw pixels)
+        input_features = self.loss_network(input.repeat(1, 3, 1, 1) if input.shape[1] == 1 else input)
+        output_features = self.loss_network(target.repeat(1, 3, 1, 1) if target.shape[1] == 1 else target)
         anomaly_maps = []
         for b in range(input.shape[0]):
             if amap_mode == 'mul':

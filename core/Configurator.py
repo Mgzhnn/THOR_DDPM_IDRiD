@@ -61,10 +61,20 @@ class DLConfigurator(object):
         if 'model_weights' in global_model.keys():
             model_state = global_model['model_weights']
             logging.info("[Configurator::train::INFO]: Model weights loaded!")
-        if 'optimizer_weights' in global_model.keys():
-            opt_state = global_model['optimizer_weights']
-        if 'epoch' in global_model.keys():
-            epoch = global_model['epoch']
+        # experiment.resume: true continues an interrupted run (optimizer state, next epoch);
+        # false (default) fine-tunes from the weights and trains all nr_epochs from epoch 0.
+        resume = bool(self.dl_config['experiment'].get('resume', False))
+        if resume:
+            if 'optimizer_weights' in global_model.keys():
+                opt_state = global_model['optimizer_weights']
+            if 'epoch' in global_model.keys():
+                # The checkpoint stores the last completed epoch, so resume with the next one
+                epoch = global_model['epoch'] + 1
+            logging.info(f"[Configurator::train::INFO]: Resuming at epoch {epoch}")
+        elif model_state is not None:
+            logging.info("[Configurator::train::INFO]: Fine-tuning from loaded weights, starting at epoch 0")
+        if epoch >= self.dl_config['trainer']['params']['nr_epochs']:
+            logging.warning(f"[Configurator::train]: start epoch {epoch} >= nr_epochs; no training epochs will run")
 
         #Train itself
         logging.info("[Configurator::train]: ################ Starting training ################")

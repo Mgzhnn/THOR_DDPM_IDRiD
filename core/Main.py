@@ -41,12 +41,15 @@ class Main(object):
 
         # Check if configurator is defined/exist in general, if not terminates
         if self.config_file['configurator'] is None:
-            logging.info("[Main::setup_experiment::ERROR]: Configurator module not found, exiting...")
-            exit()
+            logging.error("[Main::setup_experiment::ERROR]: Configurator module not found, exiting...")
+            sys.exit(1)
         
         # Import Configurator class dynamically
         configurator_class = import_module(self.config_file['configurator']['module_name'], self.config_file['configurator']['class_name']) 
         configurator = configurator_class(config_file=self.config_file, log_wandb=False) #Creating configurator object
+        if getattr(configurator, 'dl_config', None) is None:
+            logging.error("[Main::setup_experiment::ERROR]: Invalid configuration file, exiting...")
+            sys.exit(1)
 
         #Read experiment and method names from config file
         exp_name = configurator.dl_config['experiment']['name'] # THOR_IDRiD
@@ -66,6 +69,9 @@ class Main(object):
         if configurator.dl_config['experiment']['task'] == 'train':
             configurator.start_training(checkpoint)
         else:
+            if 'model_weights' not in checkpoint:
+                logging.error("[Main::setup_experiment::ERROR]: task 'test' needs experiment.weights pointing to a checkpoint")
+                sys.exit(1)
             configurator.start_evaluations(checkpoint['model_weights'])  #start evaluation only with model weights
 
 
@@ -96,18 +102,16 @@ if __name__ == "__main__":
         logging.basicConfig(level=logging.ERROR)
 
     config_file = None
-    logging.info
-    (
-
+    logging.info(
         '------------------------------- DEEP LEARNING FRAMEWORK *IML-COMPAI-DL*  -------------------------------')
     #Load configuration file into Python
     try:
         stream_file = open(args.config_path, 'r') #open
         config_file = yaml.load(stream_file, Loader=yaml.FullLoader) #load
         logging.info('[IML-COMPAI-DL::main] Success: Loaded configuration file at: {}'.format(args.config_path))
-    except:
-        logging.error('[IML-COMPAI-DL::main] ERROR: Invalid configuration file at: {}, exiting...'.format(args.config_path))
-        exit()
+    except (OSError, yaml.YAMLError) as e:
+        logging.error('[IML-COMPAI-DL::main] ERROR: Invalid configuration file at: {} ({}), exiting...'.format(args.config_path, e))
+        sys.exit(1)
 
     #Now setup and run experiment (Creates main object and calls setup experiment)
     Main(config_file).setup_experiment()

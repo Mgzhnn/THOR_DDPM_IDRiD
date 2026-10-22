@@ -135,11 +135,12 @@ class DDPM(nn.Module):
         combined_mask_np = lpips_mask * x_res 
         combined_mask_np2 = (lpips_mask * x_res) 
         
-        combined_mask = torch.Tensor(combined_mask_np).to(self.device)
-        combined_mask2 = torch.Tensor(combined_mask_np2).to(self.device)
+        # Keep results on the inputs' device (self.device ignores the configured device)
+        combined_mask = torch.Tensor(combined_mask_np).to(x.device)
+        combined_mask2 = torch.Tensor(combined_mask_np2).to(x.device)
 
         combined_mask = (combined_mask / (torch.max(combined_mask) + 1e-8)).clip(0,1) 
-        return combined_mask, combined_mask2, torch.Tensor(x_res).to(self.device)
+        return combined_mask, combined_mask2, torch.Tensor(x_res).to(x.device)
 
     
     def get_region_anomaly_mask(self, ano_map, kernel_size=13):
@@ -155,7 +156,8 @@ class DDPM(nn.Module):
     def get_thor_anomaly(self, inputs):
         x_rec, z_dict = self.sample_from_image_interpol(inputs, noise_level=self.noise_level_recon, save_intermediates=True, intermediate_steps=self.intermediate_steps, t_harmonization=self.t_harmonization, t_visualization=self.t_visualization)
         
-        x_rec = torch.clamp(x_rec, 0, 1)
+        # Model space is [-1, 1] (the trainer maps [0, 1] inputs with x * 2 - 1); callers map back to [0, 1].
+        x_rec = torch.clamp(x_rec, -1, 1)
 
         np_res = [inter.cpu().detach().numpy() for inter in z_dict['inter_res']]
         x_rec_refined = x_rec 
@@ -212,13 +214,14 @@ class DDPM(nn.Module):
             ph_img = torch.unsqueeze(torch.unsqueeze(ph_img, 0), 0)
             anomaly_img = torch.unsqueeze(torch.unsqueeze(anomaly_img, 0), 0)
         
-        # [수정] 이중 정규화 제거 (이미 [-1, 1] 범위로 입력됨)
+        # Inputs are already in [-1, 1], the range LPIPS expects, so normalize=False.
+        # normalize=True would map [0, 1] -> [-1, 1] and turn these inputs into [-3, 1].
         if anomaly_img.shape[1] == 1:
             anomaly_img = anomaly_img.repeat(1, 3, 1, 1)
         if ph_img.shape[1] == 1:
             ph_img = ph_img.repeat(1, 3, 1, 1)
 
-        loss_lpips = self.l_pips_sq(anomaly_img, ph_img, normalize=True, retPerLayer=retPerLayer)
+        loss_lpips = self.l_pips_sq(anomaly_img, ph_img, normalize=False, retPerLayer=retPerLayer)
         if retPerLayer:
             loss_lpips = loss_lpips[1][0]
         return loss_lpips.cpu().detach().numpy()
@@ -325,7 +328,7 @@ class DDPM(nn.Module):
                 res_mix = resnp
 
                 region_anomaly_map = self.get_region_anomaly_mask(res_mix) 
-                res = torch.Tensor(region_anomaly_map).to(self.device)
+                res = torch.Tensor(region_anomaly_map).to(inputs.device)
                 res = ((res)).clip(0,1)
                 intermediates_res.append(res_mix)
                 intermediates_res_mix.append(((region_anomaly_map)).clip(0,1))
@@ -343,8 +346,8 @@ class DDPM(nn.Module):
         intermediates_res.append(hmean)
         intermediates_res_mix.append(hmean_mix)
 
-        intermediates_res = [torch.Tensor(inter).to(self.device) for inter in intermediates_res]
-        intermediates_res_mix = [torch.Tensor(inter).to(self.device) for inter in intermediates_res_mix]
+        intermediates_res = [torch.Tensor(inter).to(inputs.device) for inter in intermediates_res]
+        intermediates_res_mix = [torch.Tensor(inter).to(inputs.device) for inter in intermediates_res_mix]
 
         if save_intermediates:
             return image_refined, {'z': intermediates, 'inter_gt': intermediates, 'inter_res': intermediates_res, 'inter_ddpm': intermediates, 'inter_res_ddpm': intermediates_res, 
