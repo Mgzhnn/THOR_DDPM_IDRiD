@@ -1,15 +1,20 @@
 # Data & outputs
-data/*
-!data/loaders/
-!data/loaders/**
+data/
 weights/
 results/
 logs/
 run*.log
 
-# Python cache
+# Python
 **/__pycache__/
 *.pyc
+.venv/
+venv/
 
-# OS
+# Notebooks
+.ipynb_checkpoints/
+
+# OS / editors
 .DS_Store
+.vscode/
+.idea/

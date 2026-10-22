@@ -15,12 +15,45 @@ Upstream source: https://github.com/ci-ber/THOR_DDPM
 The example images on this page were produced before the 2026-10-21 fix to the reconstruction range
 (reconstructions were squeezed into [0.5, 1], hence the washed-out colours). Regenerate them by re-running the evaluation.
 
-## Important Parts
-- Main config: `projects/thor/configs/IDRiD/thor.yaml`
-- Trainer: `projects/thor/DDPMTrainer.py`
-- Evaluator: `projects/thor/DownstreamEvaluatorIDRiD.py`
-- IDRiD loader: `data/loaders/IDRiD_loader.py`
-- Key config fields: `experiment.task`, `experiment.weights`, `trainer.params.checkpoint_path`, `model.params.inference_type`, `model.params.noise_level_recon`, `model.params.t_harmonization`
+## Repository Layout
+```
+main.py                      entry point (loads the YAML config, runs train or test)
+configs/thor_fundus.yaml     the one experiment config
+requirements.txt
+thor/                        the Python package
+  config.py                  YAML validation, dynamic class import, seeding
+  configurator.py            wires model, trainer, data and evaluators from the config
+  data/
+    dataset.py               DefaultDataset / DefaultDataLoader (CSV-driven)
+    fundus.py                FundusLoader: RGB read, resize, flips/affine augmentation
+    transforms.py            image transforms shared by the loaders
+    csv_utils.py             CSV split helpers
+  models/
+    ddpm.py                  DDPM wrapper with the THOR inference (harmonization) path
+    unet.py                  diffusion U-Net
+    schedulers/              base scheduler, DDPM and DDIM schedulers
+    simplex_noise.py         simplex noise generator
+    vgg.py                   VGG encoder for perceptual loss
+  losses/
+    ln.py                    L1 / L2
+    image.py                 perceptual, SSIM-style and NCC losses
+  training/
+    base.py                  generic training loop, checkpoints, early stopping
+    ddpm_trainer.py          DDPMTrainer: the diffusion training step and validation
+  evaluation/
+    base.py                  evaluator interface
+    fundus_evaluator.py      FundusEvaluator: scores, threshold, metrics, figures
+notebooks/fov_mask_morphology.ipynb   field-of-view mask exploration
+assets/                      figures used in this README
+```
+
+Classes are referenced from the config by module and class name, for example
+`thor.training.ddpm_trainer` / `DDPMTrainer` and `thor.evaluation.fundus_evaluator` / `FundusEvaluator`.
+Everything from the upstream framework that this project does not use (other datasets' loaders,
+the DDIM and anomaly trainers, the Atlas and X-ray evaluators, discriminators, standalone inferers) was removed.
+
+Key config fields: `experiment.task`, `experiment.weights`, `trainer.params.checkpoint_path`,
+`model.params.inference_type`, `model.params.noise_level_recon`, `model.params.t_harmonization`.
 
 ## Setup
 1. Create environment:
@@ -31,17 +64,17 @@ conda activate thor
 2. Install PyTorch for your system (CPU/CUDA).
 3. Install dependencies:
 ```bash
-pip install -r pip_requirements.txt
+pip install -r requirements.txt
 ```
 4. Optional: install an `xformers` build that matches your installed PyTorch for memory-efficient attention.
    The U-Net falls back to standard attention without it.
 
-Logging is local in this branch (`weights/`, `results/`). `wandb login` is not required.
+Logging is local (`weights/`, `results/`). `wandb` is not used.
 
 ## Data Preparation
-The dataset is not included. `IDRiD` in the repository, folder and config names is historical; any retinal fundus images in this layout work.
+The dataset is not included. `IDRiD` in the repository name and in the data paths is historical; any retinal fundus images in this layout work.
 
-Use `projects/thor/configs/IDRiD/thor.yaml` and prepare these CSV splits:
+Use `configs/thor_fundus.yaml` and prepare these CSV splits:
 - `data/IDRiD_normalize/splits/train_normal.csv`
 - `data/IDRiD_normalize/splits/train_idrid_only.csv`
 - `data/IDRiD_normalize/splits/val_normal.csv`
@@ -63,8 +96,9 @@ The evaluator logs how many images got each label; check it, because a split who
 `train_normal.csv` and `train_idrid_only.csv` must contain healthy images only, and no image may appear in both a train and a test split.
 
 ## Run
+Run from the repository root so that the `thor` package is importable:
 ```bash
-python core/Main.py --config_path projects/thor/configs/IDRiD/thor.yaml
+python main.py --config_path configs/thor_fundus.yaml
 ```
 
 For training:
