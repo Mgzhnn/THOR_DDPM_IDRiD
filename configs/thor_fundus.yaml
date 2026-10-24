@@ -1,0 +1,137 @@
+name: THOR_IDRiD_Experiment
+target_size: &target_size !!python/tuple [512, 512]
+train_batch_size: &tbatch_size 1
+downstream_batch_size: &dbatch_size 1
+checkpoint_path: &checkpoint_path './weights/thor/idrid/'
+
+#
+# Experiment
+# weights: checkpoint to evaluate (task: test) or to start training from (task: train; null = from scratch).
+experiment:
+  name: THOR_IDRiD
+  task: test
+  weights: './weights/thor/idrid/2025_12_30_16_47_33_782284/best_model.pt'
+  resume: false  # true: continue an interrupted run from its epoch; false: fine-tune from weights from epoch 0
+
+device: gpu
+configurator:
+  module_name: thor.configurator
+  class_name: Configurator
+  params:
+#
+# Model
+#
+model:
+  module_name: thor.models.ddpm
+  class_name: DDPM
+  params:
+    spatial_dims: 2
+    in_channels: 3
+    out_channels: 3
+    num_channels:
+      - 128
+      - 256
+      - 256
+    attention_levels:
+      - False
+      - False
+      - True
+    num_res_blocks: 1
+    num_head_channels: 256
+
+    # Scheduling and noising scheme
+    train_scheduler: "ddpm"
+    inference_scheduler: "ddpm" #ddpm
+    inference_steps: 1000 #1000
+    noise_level_recon: 600 #600
+    noise_type: "gaussian"
+    prediction_type: "sample"
+    inference_type: 'thor'
+    t_harmonization:
+      - 300 #300
+      - 150 #150
+      - 50  #50
+
+
+#
+# Trainer
+#
+trainer:
+  module_name: thor.training.ddpm_trainer
+  class_name: DDPMTrainer
+  params:
+    input_size: *target_size
+    checkpoint_path: *checkpoint_path
+    batch_size: *tbatch_size
+    nr_epochs: 50
+    val_interval: 5   # epochs between validations; the last epoch always validates
+    patience: 10      # counted in validations, not epochs (10 x 5 = 50 epochs)
+    # Loss
+    loss:
+      module_name: thor.losses.ln
+      class_name: L2
+      params:
+    optimizer_params:
+      lr: 1.0e-4
+  # Data Loader
+  data_loader:
+    module_name: thor.data.dataset
+    class_name: DefaultDataLoader
+    params:
+      args:
+        target_size: *target_size
+        batch_size: *tbatch_size
+        dataset_module:
+          module_name: thor.data.fundus
+          class_name: FundusLoader
+        data_dir:
+          train:
+            - 'data/IDRiD_normalize/splits/train_normal.csv'
+            - 'data/IDRiD_normalize/splits/train_idrid_only.csv'
+          val:
+            - 'data/IDRiD_normalize/splits/val_normal.csv'
+          test:
+            - 'data/IDRiD_normalize/splits/test_normal.csv'
+            - 'data/IDRiD_normalize/splits/test_DR.csv'
+
+#
+# Downstream tasks (Evaluation)
+#
+downstream_tasks:
+  retinopathy_evaluation:
+    module_name: thor.evaluation.fundus_evaluator
+    class_name: FundusEvaluator
+    checkpoint_path: *checkpoint_path
+    data_loader:
+      module_name: thor.data.dataset
+      class_name: DefaultDataLoader
+      params:
+        args:
+          target_size: *target_size
+          batch_size: *dbatch_size
+          dataset_module:
+            module_name: thor.data.fundus
+            class_name: FundusLoader
+
+      datasets:
+        DiabeticRetinopathy:
+          data_dir:
+            test:
+              - 'data/IDRiD_normalize/splits/test_DR.csv'
+              - 'data/IDRiD_normalize/splits/test_normal.csv'
+    # Validation normals set the score threshold (P95), so the test set is not used to choose it
+    val_data_loader:
+      module_name: thor.data.dataset
+      class_name: DefaultDataLoader
+      params:
+        args:
+          target_size: *target_size
+          batch_size: *dbatch_size
+          dataset_module:
+            module_name: thor.data.fundus
+            class_name: FundusLoader
+      datasets:
+        Validation:
+          data_dir:
+            test:
+              - 'data/IDRiD_normalize/splits/val_normal.csv'
