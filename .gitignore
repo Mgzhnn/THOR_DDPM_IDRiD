@@ -1,8 +1,8 @@
 # Data & outputs
-data/
-weights/
-results/
-logs/
+/data/
+/weights/
+/results/
+/logs/
 run*.log
 
 # Python

@@ -28,7 +28,7 @@ thor/                        the Python package
     dataset.py               DefaultDataset / DefaultDataLoader (CSV-driven)
     fundus.py                FundusLoader: RGB read, resize, flips/affine augmentation
     transforms.py            image transforms shared by the loaders
-    csv_utils.py             CSV split helpers
+    csv_utils.py             reads the split CSVs
   models/
     ddpm.py                  DDPM wrapper with the THOR inference (harmonization) path
     unet.py                  diffusion U-Net
@@ -37,7 +37,7 @@ thor/                        the Python package
     vgg.py                   VGG encoder for perceptual loss
   losses/
     ln.py                    L1 / L2
-    image.py                 perceptual, SSIM-style and NCC losses
+    image.py                 VGG perceptual loss
   training/
     base.py                  generic training loop, checkpoints, early stopping
     ddpm_trainer.py          DDPMTrainer: the diffusion training step and validation
@@ -62,7 +62,7 @@ Key config fields: `experiment.task`, `experiment.weights`, `trainer.params.chec
 conda create -n thor python=3.8
 conda activate thor
 ```
-2. Install PyTorch for your system (CPU/CUDA).
+2. Install PyTorch and torchvision for your system (CPU/CUDA).
 3. Install dependencies:
 ```bash
 pip install -r requirements.txt

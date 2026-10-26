@@ -1,8 +1,6 @@
 from thor.data.dataset import DefaultDataset
 import torchvision.transforms as transforms
 from PIL import Image
-import torch
-import numpy as np
 
 class ReadRGB:
     def __call__(self, path):

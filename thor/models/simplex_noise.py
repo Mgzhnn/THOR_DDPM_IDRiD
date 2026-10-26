@@ -22,10 +22,8 @@ from ctypes import c_int64
 from math import floor
 import random
 
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from matplotlib import animation
 from numba import njit, prange
 
 def generate_noise(noise_type, x, timestep=None, generator=None):
@@ -909,118 +907,3 @@ def _noise3a(X, Y, Z, perm, perm_grad_index3):
             for x in prange(X.size):
                 noise[z, y, x] = _noise3(X[x], Y[y], Z[z], perm, perm_grad_index3)
     return noise
-
-
-@njit(cache=True, parallel=True)
-def _noise3b(X, Y, Z, perm, perm_grad_index3):
-    noise = np.zeros(X.size * Y.size * Z.size, dtype=np.double)
-    for z in prange(Z.size):
-        for y in prange(Y.size):
-            for x in prange(X.size):
-                noise[(y * Y.size + x) + (z * Y.size * X.size)] = _noise3(X[x], Y[y], Z[z], perm, perm_grad_index3)
-    return noise.reshape((Z.size, Y.size, X.size))
-
-
-def _noise3aSlow(X, Y, T, FEATURE_SIZE, perm, perm_grad_index3):
-    img = np.empty((T, X, Y), dtype=np.double)
-    for t in range(T):
-        for x in range(X):
-            for y in range(Y):
-                img[t, x, y] = _noise3(x / FEATURE_SIZE, y / FEATURE_SIZE, t / FEATURE_SIZE, perm, perm_grad_index3)
-    return img
-
-
-
-def testing_main():
-    times = []
-    slices = 100
-    img_size = (256, 256)
-    feature_size = 24.0
-    simplexObj = Simplex_CLASS()
-    # for _ in tqdm(range(1)):
-    #
-    #     t = np.arange(0, slices) / feature_size
-    #     x = np.arange(0, img_size[0]) / feature_size  # indices divided by feature size
-    #     y = np.arange(0, img_size[1]) / feature_size  # indices divided by feature size
-    #     start = time.time()
-    #     three_noise = _noise3a(x, y, t,simplexObj._perm,simplexObj._perm_grad_index3)
-    #     done = time.time() - start
-    #     times.append(done)
-    #
-    # print(np.average(np.array(times)))
-    #
-    # times = []
-    # for _ in tqdm(range(1)):
-    #     t = np.arange(0, slices) / feature_size
-    #     x = np.arange(0, img_size[0]) / feature_size  # indices divided by feature size
-    #     y = np.arange(0, img_size[1]) / feature_size  # indices divided by feature size
-    #     start = time.time()
-    #     three_noise = _noise3b(x, y, t,simplexObj._perm,simplexObj._perm_grad_index3)
-    #     done = time.time() - start
-    #     times.append(done)
-    #
-    # print(np.average(np.array(times)))
-
-
-    # print(_noise3aSlow(img_size[0],img_size[1],slices,feature_size,simplexObj._perm,simplexObj._perm_grad_index3).shape)
-    # times = []
-    # for _ in tqdm(range(100)):
-    #     start = time.time()
-    #     _noise3aSlow(img_size[0],img_size[1],slices,feature_size,simplexObj._perm,simplexObj._perm_grad_index3)
-    #     done = time.time() - start
-    #     times.append(done)
-    #
-    # print(np.average(np.array(times)))
-
-    # t = np.arange(0, slices) / feature_size
-    # x = np.arange(0, img_size[0]) / feature_size  # indices divided by feature size
-    # y = np.arange(0, img_size[1]) / feature_size  # indices divided by feature size
-    #
-    three_noise = simplexObj.rand_3d_octaves((slices, *img_size), 6, 0.6)
-
-    print(three_noise.shape)
-    fig, ax = plt.subplots()
-    imgs = [[ax.imshow(three_noise[x], animated=True, cmap='gray')] for x in range(slices)]
-    ani = animation.ArtistAnimation(
-            fig, imgs, interval=50, blit=True,
-            repeat_delay=1000
-            )
-    ani.save(f'./SIMPLEX_TEST_Oct.mp4')
-
-
-
-    # t = np.arange(0, slices) / feature_size
-    # x = np.arange(0, img_size[0]) / feature_size  # indices divided by feature size
-    # y = np.arange(0, img_size[1]) / feature_size  # indices divided by feature size
-    # perm, perm_grad_index3 = _init()
-    # three_noise = _noise3a(x,y,t, perm, perm_grad_index3)
-    #
-    # print(three_noise.shape)
-    # fig, ax = plt.subplots()
-    # imgs = [[ax.imshow(three_noise[x], animated=True, cmap='gray')] for x in range(slices)]
-    # ani = animation.ArtistAnimation(fig, imgs, interval=50, blit=True,
-    #                                 repeat_delay=1000)
-    # ani.save(f'./SIMPLEX_TEST_optimA.mp4')
-    #
-    # three_noise = _noise3b(x,y,t, perm, perm_grad_index3)
-    #
-    # print(three_noise.shape)
-    # fig, ax = plt.subplots()
-    # imgs = [[ax.imshow(three_noise[x], animated=True, cmap='gray')] for x in range(slices)]
-    # ani = animation.ArtistAnimation(fig, imgs, interval=50, blit=True,
-    #                                 repeat_delay=1000)
-    # ani.save(f'./SIMPLEX_TEST_optimB.mp4')
-
-
-    # three_noise = _noise3aSlow(*img_size,slices,feature_size, perm, perm_grad_index3)
-    #
-    # print(three_noise.shape)
-    # fig, ax = plt.subplots()
-    # imgs = [[ax.imshow(three_noise[x], animated=True, cmap='gray')] for x in range(slices)]
-    # ani = animation.ArtistAnimation(fig, imgs, interval=50, blit=True,
-    #                                 repeat_delay=1000)
-    # ani.save(f'./SIMPLEX_TEST_slow.mp4')
-
-
-if __name__ == "__main__":
-    testing_main()
