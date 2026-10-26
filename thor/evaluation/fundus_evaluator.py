@@ -1,5 +1,4 @@
 import logging
-import io
 import os
 import csv
 from datetime import datetime
@@ -8,16 +7,11 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
-import seaborn as sns
-from torch.nn import L1Loss
-from thor.models.vgg import VGGEncoder
 import lpips
 from thor.evaluation.base import DownstreamEvaluator
 import numpy as np
 import torch
 import cv2
-import copy
-import sklearn.metrics 
 from sklearn.metrics import roc_auc_score, average_precision_score, roc_curve
 
 

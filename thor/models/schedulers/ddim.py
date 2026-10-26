@@ -192,8 +192,6 @@ class DDIMScheduler(Scheduler):
         pred_prev_sample = alpha_prod_t_prev ** (0.5) * pred_original_sample + pred_sample_direction
 
         if eta > 0:
-            # randn_like does not support generator https://github.com/pytorch/pytorch/issues/27072
-            device = model_output.device if torch.is_tensor(model_output) else "cpu"
             noise = generate_noise(self.noise_type, model_output, timestep)
 
             variance = self._get_variance(timestep, prev_timestep) ** (0.5) * eta * noise

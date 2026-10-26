@@ -13,7 +13,6 @@ from thor.data.csv_utils import get_data_from_csv
 from thor.config import import_module
 import logging
 import glob
-import torch
 
 
 class DefaultDataset(Dataset):
