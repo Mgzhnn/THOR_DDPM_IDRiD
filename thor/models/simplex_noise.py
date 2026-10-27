@@ -37,8 +37,11 @@ def generate_noise(noise_type, x, timestep=None, generator=None):
     return noise
 
 def generate_simplex_noise(x, t, random_param=False, octave=6, persistence=0.8, frequency=64,
-        in_channels=1
+        in_channels=None
         ):
+    # Fill every channel of x; the old default of 1 left channels 1+ of RGB input uninitialized
+    if in_channels is None:
+        in_channels = x.shape[1]
     Simplex_instance = Simplex_CLASS()
     noise = torch.empty(x.shape).to(x.device)
     for i in range(in_channels):
